@@ -148,7 +148,7 @@ enum SSDTensor {
       {%- endif %}
       hash_size_cumsum,
       indices,
-      offsets,
+      offsets_,
       {%- if not nobag %}
       pooling_mode,
       indice_weights_value,
@@ -706,6 +706,13 @@ class {{ autograd_func }} :
         info_B_num_bits,
         /*total_B=*/offsets.sym_size(0) - 1
         );
+      Tensor offsets_;
+      if (weights_host.numel()){
+          offsets_ = reshape_offsets(offsets_, B_offsets, max_B, T);
+      }
+      else {
+          offsets_ = offsets;
+      }
     {%- endif %} // vbe
 
     {%- if is_gwd %}
@@ -728,7 +735,7 @@ class {{ autograd_func }} :
         {%- endif %}
         hash_size_cumsum,
         indices,
-        offsets,
+        offsets_,
         {%- if not nobag %}
         indice_weights_value,
         feature_requires_grad.value_or(Tensor()),
