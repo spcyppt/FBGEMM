@@ -72,8 +72,52 @@ generate_vbe_metadata_cpu(
     const c10::SymInt max_B_feature_rank,
     const int64_t info_B_num_bits,
     const c10::SymInt total_B) {
-  Tensor row_output_offsets = output_offsets_feature_rank;
-  Tensor b_t_map = B_offsets_rank_per_feature;
+
+  TENSOR_ON_CPU(B_offsets);
+  TENSORS_ON_SAME_DEVICE(B_offsets, B_offsets_rank_per_feature);
+  TENSORS_ON_SAME_DEVICE(B_offsets, output_offsets_feature_rank);
+  TENSORS_ON_SAME_DEVICE(B_offsets, D_offsets);
+
+  TENSOR_NDIM_EQUALS(B_offsets, 1);
+  TENSOR_NDIM_EQUALS(B_offsets_rank_per_feature, 2);
+  TENSOR_NDIM_EQUALS(output_offsets_feature_rank, 1);
+
+  const auto T = B_offsets.numel() - 1;
+  TORCH_CHECK(T > 0, "generate_vbe_metadata: Invalid T ", T);
+  TORCH_CHECK(D_offsets.numel() == T + 1)
+  const auto num_ranks = B_offsets_rank_per_feature.size(1) - 1;
+  TORCH_CHECK(
+      num_ranks > 0, "generate_vbe_metadata: Invalid num_ranks ", num_ranks);
+  TORCH_CHECK(B_offsets_rank_per_feature.size(0) == T);
+  TORCH_CHECK(output_offsets_feature_rank.numel() == num_ranks * T + 1);
+
+  Tensor row_output_offsets =
+      at::empty({total_B}, output_offsets_feature_rank.options());
+  Tensor b_t_map = at::empty({total_B}, B_offsets.options());
+    
+    for (const auto t : c10::irange(T)) {
+        // Get batch offset per table
+        const auto B_start_t = B_offsets[t];
+        const auto D_ = D_offsets[t + 1] - D_offsets[t];
+        for (const auto r : c10::irange(num_ranks)) {
+            // Get start index of batch offset
+            const auto B_start_r_t = B_offsets_rank_per_feature[t][r];
+            // Get batch size
+            const auto B_r_t = B_offsets_rank_per_feature[t][r + 1] - B_start_r_t;
+            // Offset output by feature
+            const auto* output_offsets_feature = &output_offsets_feature_rank[r * T];
+            
+            for (const auto t : c10::irange(num_batches_r_t)) {
+                // serialize batch id as index for the outputs
+                const auto b_t = static_cast<int64_t>(B_start_t) + static_cast<int64_t>(B_start_r_t) + b;
+                row_output_offsets[b_t] = output_offsets_feature[t] + b * static_cast<int64_t>(D_);
+                // batch ID per table
+                const auto b_ = B_start_r_t + b;
+                *reinterpret_cast<uint32_t*>(&b_t_map[b_t]) = (reinterpret_cast<const uint32_t*>(&t)[0] << info_B_num_bits) | reinterpret_cast<const uint32_t*>(&b_)[0];
+            }
+        }
+   }
+  
   return {row_output_offsets, b_t_map};
 }
 
