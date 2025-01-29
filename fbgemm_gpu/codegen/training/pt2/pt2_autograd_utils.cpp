@@ -59,4 +59,22 @@ Tensor reshape_vbe_output(
   }
   return grad_output_;
 }
+Tensor reshape_offsets(
+    const Tensor& offsets,
+    const Tensor& B_offsets,
+    const c10::SymInt max_B,
+    const int32_t T) {
+    auto offsets_ = at::empty({T * max_B + 1}, offsets.options());
+    for (int32_t t = 0; t < T; t++) {
+        const auto b_begin = B_offsets[t];
+        const auto b_end = B_offsets[t+1];
+        const auto values = offsets.slice(0, begin, end);
+        offsets_.index_put_({t * max_B, t * max_B + end - begin}, values);
+        offsets_[t * max_B + end - begin : (t + 1) * max_B] = offsets_[end];
+    }
+    offsets_[offsets.numel()-1] = offsets[offsets.numel()-1];
+    return offsets_;
+}
+
+
 } // namespace fbgemm_gpu
