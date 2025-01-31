@@ -53,11 +53,19 @@ Tensor split_embedding_codegen_grad_indice_weights{{ vdesc }}_pt2_cpu_wrapper(
     const Tensor& vbe_row_output_offsets,
     const Tensor& vbe_b_t_map,
     const int64_t info_B_num_bits,
-    const int64_t info_B_mask_int64
+    const int64_t info_B_mask_int64,
+    const Tensor& vbe_B_offsets_rank_per_feature,
+    const c10::SymInt max_B,
     {%- else %}
     const Tensor& feature_requires_grad
     {%- endif %}
 ) {
+  {%- if vbe %}
+  // TODO: remove this once vbe for cpu is implemented
+  // Reshape offsets and grad_output
+  offsets = reshape_offsets(offsets, vbe_B_offsets_rank_per_feature, max_B, D_offsets.numel()-1);
+  grad_output = reshape_vbe_output(grad_output, max_B, vbe_B_offsets_rank_per_feature, D_offsets);
+  {%- endif %}    
   static auto op =
       torch::Dispatcher::singleton()
         .findSchemaOrThrow(
@@ -101,9 +109,17 @@ Tensor split_embedding_codegen_forward_{{ wdesc }}{{ vdesc }}_pt2_cpu_wrapper(
     const c10::SymInt vbe_output_size,
     const int64_t info_B_num_bits,
     const int64_t info_B_mask_int64,
+    const Tensor& vbe_B_offsets_rank_per_feature,
+    const Tensor& vbe_output_offsets_feature_rank,
+    const c10::SymInt max_B,
     {%- endif %}
     const bool /*is_experimental = false*/,
     const int64_t output_dtype = static_cast<int64_t>(SparseType::FP32)) {
+    {%- if vbe %}
+    // TODO: remove this once vbe for cpu is implemented
+    // Reshape offsets and grad_output
+    offsets = reshape_offsets(offsets, vbe_B_offsets_rank_per_feature, max_B, D_offsets.numel()-1);
+    {%- endif %}
     static auto op =
         torch::Dispatcher::singleton()
             .findSchemaOrThrow("fbgemm::split_embedding_codegen_forward_cpu", "")
@@ -112,8 +128,6 @@ Tensor split_embedding_codegen_forward_{{ wdesc }}{{ vdesc }}_pt2_cpu_wrapper(
             )>();
     {%- if vbe %}
     // TODO: remove this after vbe is implemented for CPU kernel
-    Tensor vbe_B_offsets_rank_per_feature = vbe_b_t_map;
-    Tensor vbe_output_offsets_feature_rank = vbe_row_output_offsets;
     const auto output = op.call(
         host_weights,
         weights_offsets,
@@ -187,6 +201,8 @@ Tensor split_embedding_backward_codegen_{{ optimizer }}_{{ wdesc }}{{ vdesc }}_p
     const bool stochastic_rounding,
     const int64_t info_B_num_bits,
     const int64_t info_B_mask_int64,
+    const Tensor& vbe_B_offsets_rank_per_feature,
+    const c10::SymInt max_B,
     {%- if vbe %}
     const Tensor& B_offsets,
     const Tensor& vbe_row_output_offsets,
@@ -199,6 +215,12 @@ Tensor split_embedding_backward_codegen_{{ optimizer }}_{{ wdesc }}{{ vdesc }}_p
     , const int64_t output_dtype = static_cast<int64_t>(SparseType::FP32)
     {%- endif %})
     {
+        {%- if vbe %}
+        // TODO: remove this once vbe for cpu is implemented
+        // Reshape offsets and grad_output
+        offsets = reshape_offsets(offsets, vbe_B_offsets_rank_per_feature, max_B, D_offsets.numel()-1);
+        grad_output = reshape_vbe_output(grad_output, max_B, vbe_B_offsets_rank_per_feature, D_offsets);
+        {%- endif %}   
         {%- set backward_op = "split_embedding_backward_codegen_{}_cpu".format(
                 optimizer
             )
