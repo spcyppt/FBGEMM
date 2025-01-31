@@ -27,6 +27,10 @@
 #include "fbgemm_gpu/utils/dispatch_macros.h"
 #include "fbgemm_gpu/embedding_common.h"
 
+{%- if has_vbe_support %}
+#include "fbgemm_gpu/utils/pt2_autograd_utils.h"
+{%- endif %}
+
 using Tensor = at::Tensor;
 using namespace fbgemm_gpu;
 
