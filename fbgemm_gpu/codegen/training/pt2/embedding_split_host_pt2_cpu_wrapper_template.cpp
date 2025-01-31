@@ -314,6 +314,9 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m) {
         "    SymInt vbe_output_size, "
         "    int info_B_num_bits, "
         "    int info_B_mask_int64, "
+        "    Tensor vbe_B_offsets_rank_per_feature, "
+        "    Tensor vbe_output_offsets_feature_rank, "
+        "    SymInt max_B, "
         {%- endif %}
         "    bool is_experimental, "
         "    int output_dtype "
@@ -365,6 +368,8 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m) {
         "    Tensor B_offsets, "
         "    Tensor vbe_row_output_offsets, "
         "    Tensor vbe_b_t_map, "
+        "    Tensor vbe_B_offsets_rank_per_feature, "
+        "    SymInt max_B, "
         {%- endif %}
         "    bool use_uniq_cache_locations, "
         "    bool use_homogeneous_placements,"
@@ -401,7 +406,10 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m) {
         "    Tensor vbe_row_output_offsets, "
         "    Tensor vbe_b_t_map, "
         "    int info_B_num_bits, "
-        "    int info_B_mask_int64"
+        "    int info_B_mask_int64, "
+        "    Tensor vbe_B_offsets_rank_per_feature, "
+        "    Tensor vbe_output_offsets_feature_rank, "
+        "    SymInt max_B"
         {%- else %}
         "    Tensor feature_requires_grad"
         {%- endif %}
